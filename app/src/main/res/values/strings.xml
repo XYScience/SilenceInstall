@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">SilenceInstall</string>
+    <string name="accessibility_service_description">免root自动安装</string>
+</resources>
