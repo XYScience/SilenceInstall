@@ -1,14 +1,13 @@
 package com.science.silenceinstall;
 
-import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -47,13 +46,6 @@ public class MainActivity extends AppCompatActivity {
                 uri = Uri.fromFile(new File(apkPath));
             }
             localIntent.setDataAndType(uri, "application/vnd.android.package-archive"); //打开apk文件
-            ComponentName comp;
-            if (android.os.Build.VERSION.SDK_INT < 23) {
-                comp = new ComponentName("com.android.packageinstaller", "com.android.packageinstaller.PackageInstallerActivity");
-            } else {
-                comp = new ComponentName("com.google.android.packageinstaller", "com.android.packageinstaller.PackageInstallerActivity");
-            }
-            localIntent.setComponent(comp);
             startActivity(localIntent);
         }
     }
@@ -107,5 +99,23 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return result;
+    }
+
+    /**
+     * 判断手机是否拥有Root权限。
+     * @return 有root权限返回true，否则返回false。
+     */
+    public boolean isRoot() {
+        boolean bool = false;
+        try {
+            if (Runtime.getRuntime().exec("su").getOutputStream() == null) {
+                return false;
+            } else {
+                return true;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return bool;
     }
 }
