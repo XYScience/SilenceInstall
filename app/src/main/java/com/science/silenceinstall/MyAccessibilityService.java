@@ -1,6 +1,7 @@
 package com.science.silenceinstall;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.Intent;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -23,18 +24,19 @@ public class MyAccessibilityService extends AccessibilityService {
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         Log.e(TAG, "onAccessibilityEvent:>>>>>>>>>>");
-        //AccessibilityNodeInfo nodeInfo = event.getSource()：在nexus5 Android7.1上最后安装完成不出现“完成”的nodeInfo
+        // AccessibilityNodeInfo nodeInfo = event.getSource()：
+        // 在Android6.0以上，经实测初步判断event.getSource()在typeWindowContentChanged下，即窗口内容改变时，
+        // 获取不到"事件资源的根节点"，只能获取改变部分的第一个节点；
+        // 因为在Android6.0以上，从正在安装到安装完成，窗口状态不变，但窗口内容改变，所以最后获取不到“完成”
+        // 的节点，也就是没有自动点击安装完成。
         AccessibilityNodeInfo nodeInfo = getRootInActiveWindow();
         if (nodeInfo != null) {
-            int eventType = event.getEventType();
-            //两个同时都有被触发的可能，那么为了防止二次处理的情况，这里我们使用了一个Map来过滤掉重复事件
-            if (eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
-                    eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-                if (handledMap.get(event.getWindowId()) == null) {
-                    boolean handled = iterateNodesAndHandle(nodeInfo);
-                    if (handled) {
-                        handledMap.put(event.getWindowId(), true);
-                    }
+            // 只监听typeWindowStateChanged|typeWindowContentChanged事件，配置文件accessibility_service定义；
+            // 两个事件同时都有被触发的可能，那么为了防止二次处理的情况，这里我们使用了一个Map来过滤掉重复事件
+            if (handledMap.get(event.getWindowId()) == null) {
+                boolean handled = iterateNodesAndHandle(nodeInfo);
+                if (handled) {
+                    handledMap.put(event.getWindowId(), true);
                 }
             }
         }
@@ -67,6 +69,12 @@ public class MyAccessibilityService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         Log.e(TAG, "无障碍服务已开启:>>>>>>>>>>");
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        Log.e(TAG, "无障碍服务已关闭:>>>>>>>>>>");
+        return super.onUnbind(intent);
     }
 
     @Override
