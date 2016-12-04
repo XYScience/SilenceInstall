@@ -30,37 +30,38 @@ public class MyAccessibilityService extends AccessibilityService {
         // 因为在Android6.0以上，从正在安装到安装完成，窗口状态不变，但窗口内容改变，所以最后获取不到“完成”
         // 的节点，也就是没有自动点击安装完成。
         AccessibilityNodeInfo nodeInfo = getRootInActiveWindow();
-        if (nodeInfo != null) {
-            // 只监听typeWindowStateChanged|typeWindowContentChanged事件，配置文件accessibility_service定义；
-            // 两个事件同时都有被触发的可能，那么为了防止二次处理的情况，这里我们使用了一个Map来过滤掉重复事件
-            if (handledMap.get(event.getWindowId()) == null) {
-                boolean handled = iterateNodesAndHandle(nodeInfo);
-                if (handled) {
-                    handledMap.put(event.getWindowId(), true);
-                }
+        Log.e(TAG, "nodeInfo:>>>>" + event.getEventType());
+        // 只监听typeWindowStateChanged|typeWindowContentChanged事件，配置文件accessibility_service定义；
+        // 两个事件同时都有被触发的可能，那么为了防止二次处理的情况，这里我们使用了一个Map来过滤掉重复事件
+        if (handledMap.get(event.getWindowId()) == null) {
+            boolean handled = iterateNodesAndHandle(nodeInfo);
+            if (handled) {
+                handledMap.put(event.getWindowId(), true);
             }
         }
     }
 
     private boolean iterateNodesAndHandle(AccessibilityNodeInfo nodeInfo) {
-        if (nodeInfo.isClickable() && nodeInfo.isEnabled()) {
-            String nodeContent = nodeInfo.getText().toString();
-            String[] labels = new String[]{"安装", "下一步", "允许", "确定", "完成"};
-            for (String label : labels) {
-                if (nodeContent != null && nodeContent.contains(label)) {
-                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                    return true;
+        if (nodeInfo != null) {
+            if (nodeInfo.isClickable() && nodeInfo.isEnabled() && nodeInfo.getText() != null) {
+                String nodeContent = nodeInfo.getText().toString();
+                String[] labels = new String[]{"安装", "继续安装", "下一步", "仅允许一次", "确定", "完成"};
+                for (String label : labels) {
+                    if (nodeContent != null && nodeContent.equals(label)) {
+                        nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                        return true;
+                    }
                 }
             }
-        }
-        if ("android.widget.ScrollView".equals(nodeInfo.getClassName())) {
-            nodeInfo.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
-        }
-        int childCount = nodeInfo.getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            AccessibilityNodeInfo childNodeInfo = nodeInfo.getChild(i);
-            if (iterateNodesAndHandle(childNodeInfo)) {
-                return true;
+            if ("android.widget.ScrollView".equals(nodeInfo.getClassName())) {
+                nodeInfo.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+            }
+            int childCount = nodeInfo.getChildCount();
+            for (int i = 0; i < childCount; i++) {
+                AccessibilityNodeInfo childNodeInfo = nodeInfo.getChild(i);
+                if (iterateNodesAndHandle(childNodeInfo)) {
+                    return true;
+                }
             }
         }
         return false;

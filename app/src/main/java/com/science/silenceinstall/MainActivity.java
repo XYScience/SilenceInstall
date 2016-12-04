@@ -1,108 +1,157 @@
 package com.science.silenceinstall;
 
+import android.Manifest;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
-import android.net.Uri;
-import android.os.Build;
+import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.IBinder;
 import android.provider.Settings;
-import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.AppCompatCheckBox;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.Toast;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
+import com.tbruyelle.rxpermissions.RxPermissions;
+
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
+
+import rx.functions.Action1;
 
 public class MainActivity extends AppCompatActivity {
 
-    private String apkPath = Environment.getExternalStorageDirectory().toString() + "/" + "dpi.apk";
+    private static final String TAG = MainActivity.class.getSimpleName() + ">>>>>";
+    public static final String APK_URL = "apk_url";
+    private String apkUrl = "http://dakaapp.troila.com/download/daka.apk?v=3.0";
+    private AppCompatCheckBox mCbSilenceRootInstall, mCbSilenceAutoInstall;
+    private EditText mEdApkUrl;
+    private DownLoadService mDownLoadService;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mCbSilenceRootInstall = (AppCompatCheckBox) findViewById(R.id.cb_silence_root_install);
+        mCbSilenceAutoInstall = (AppCompatCheckBox) findViewById(R.id.cb_silence_auto_install);
+        mEdApkUrl = (EditText) findViewById(R.id.et_apk_url);
+        mEdApkUrl.setText(apkUrl);
+
+        if (isAccessibilitySettingsOn(this)) {
+            mCbSilenceAutoInstall.setChecked(true);
+        } else {
+            mCbSilenceAutoInstall.setChecked(false);
+        }
+
+        Intent intent = new Intent(MainActivity.this, DownLoadService.class);
+        bindService(intent, mServiceConnection, BIND_AUTO_CREATE);
     }
 
     public void onClick(View view) {
         int id = view.getId();
-        if (id == R.id.btn_silence_install) {
-            install(apkPath);
-        } else if (id == R.id.btn_open_auxiliary) {
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            startActivity(intent);
-        } else if (id == R.id.btn_silence_install_no_root) {
-            Intent localIntent = new Intent(Intent.ACTION_VIEW);
-            Uri uri;
-            if (Build.VERSION.SDK_INT >= 24) {
-                uri = FileProvider.getUriForFile(this, "com.science.fileprovider", new File(apkPath));
-                localIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            } else {
-                uri = Uri.fromFile(new File(apkPath));
-            }
-            localIntent.setDataAndType(uri, "application/vnd.android.package-archive"); //打开apk文件
-            startActivity(localIntent);
+        switch (id) {
+            case R.id.rl_silence_root_install:
+                silenceRootInstall();
+                break;
+            case R.id.rl_silence_auto_install:
+                silenceAutoInstall();
+                break;
+            case R.id.btn_download:
+                startDownload();
+                break;
         }
     }
 
-    /**
-     * 执行具体的静默安装逻辑，需要手机ROOT。
-     *
-     * @param apkPath 要安装的apk文件的路径
-     * @return 安装成功返回true，安装失败返回false。
-     */
-    public boolean install(String apkPath) {
-        boolean result = false;
-        DataOutputStream dataOutputStream = null;
-        BufferedReader errorStream = null;
-        try {
-            // 申请su权限
-            Process process = Runtime.getRuntime().exec("su");
-            dataOutputStream = new DataOutputStream(process.getOutputStream());
-            // 执行pm install命令
-            String command = "pm install -r " + apkPath + "\n";
-            dataOutputStream.write(command.getBytes(Charset.forName("utf-8")));
-            dataOutputStream.flush();
-            dataOutputStream.writeBytes("exit\n");
-            dataOutputStream.flush();
-            process.waitFor();
-            errorStream = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-            String msg = "";
-            String line;
-            // 读取命令的执行结果
-            while ((line = errorStream.readLine()) != null) {
-                msg += line;
+    private void silenceRootInstall() {
+        if (isRoot()) {
+            if (mCbSilenceRootInstall.isChecked()) {
+                mCbSilenceRootInstall.setChecked(false);
+            } else {
+                mCbSilenceRootInstall.setChecked(true);
             }
-            Log.e("TAG", "install msg is " + msg);
-            // 如果执行结果中包含Failure字样就认为是安装失败，否则就认为安装成功
-            if (!msg.contains("Failure")) {
-                result = true;
-                Toast.makeText(this, "success!", Toast.LENGTH_SHORT).show();
-            }
-        } catch (Exception e) {
-            Log.e("TAG", e.getMessage(), e);
-        } finally {
-            try {
-                if (dataOutputStream != null) {
-                    dataOutputStream.close();
-                }
-                if (errorStream != null) {
-                    errorStream.close();
-                }
-            } catch (IOException e) {
-                Log.e("TAG", e.getMessage(), e);
-            }
+        } else {
+            Toast.makeText(this, "唔好意思，本机冇root权限~~", Toast.LENGTH_SHORT).show();
         }
-        return result;
+    }
+
+    private void silenceAutoInstall() {
+        if (isAccessibilitySettingsOn(this)) {
+            if (mCbSilenceAutoInstall.isChecked()) {
+                mCbSilenceAutoInstall.setChecked(false);
+            } else {
+                mCbSilenceAutoInstall.setChecked(true);
+            }
+        } else {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            startActivityForResult(intent, 1);
+        }
+    }
+
+    private void startDownload() {
+        RxPermissions rxPermissions = new RxPermissions(this);
+        rxPermissions.request(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                .subscribe(new Action1<Boolean>() {
+                    @Override
+                    public void call(Boolean aBoolean) {
+                        if (aBoolean) {
+                            File fileParent = Environment.getExternalStoragePublicDirectory(DownLoadService.FILE_DIR);
+                            File[] files = fileParent.listFiles();
+                            if (files == null || files.length == 0) {
+                                mDownLoadService.startDownload(apkUrl);
+                            } else {
+                                for (File file : files) {
+                                    if (file.isFile()) {
+                                        if (file.getName().equals(DownLoadService.FILE_NAME)) {
+                                            mDownLoadService.installRoot();
+                                        }
+                                    } else {
+                                        mDownLoadService.startDownload(apkUrl);
+                                    }
+                                }
+                            }
+
+                        }
+                    }
+                });
+    }
+
+    ServiceConnection mServiceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            mDownLoadService = ((DownLoadService.MyBinder) service).getServices();
+            mDownLoadService.registerReceiver();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
+        }
+    };
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        unbindService(mServiceConnection);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (isAccessibilitySettingsOn(this)) {
+            mCbSilenceAutoInstall.setChecked(true);
+        } else {
+            mCbSilenceAutoInstall.setChecked(false);
+        }
     }
 
     /**
      * 判断手机是否拥有Root权限。
+     *
      * @return 有root权限返回true，否则返回false。
      */
     public boolean isRoot() {
@@ -117,5 +166,47 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
         return bool;
+    }
+
+    /**
+     * 检测辅助功能是否开启
+     *
+     * @param mContext
+     * @return
+     */
+    private boolean isAccessibilitySettingsOn(Context mContext) {
+        int accessibilityEnabled = 0;
+        // MyAccessibilityService为对应的服务
+        final String service = getPackageName() + "/" + MyAccessibilityService.class.getCanonicalName();
+        Log.e(TAG, "service:" + service);
+        try {
+            accessibilityEnabled = Settings.Secure.getInt(mContext.getApplicationContext().getContentResolver(),
+                    android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
+            Log.e(TAG, "accessibilityEnabled = " + accessibilityEnabled);
+        } catch (Settings.SettingNotFoundException e) {
+            Log.e(TAG, "Error finding setting, default accessibility to not found: " + e.getMessage());
+        }
+        TextUtils.SimpleStringSplitter mStringColonSplitter = new TextUtils.SimpleStringSplitter(':');
+
+        if (accessibilityEnabled == 1) {
+            Log.e(TAG, "***ACCESSIBILITY IS ENABLED***");
+            String settingValue = Settings.Secure.getString(mContext.getApplicationContext().getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (settingValue != null) {
+                mStringColonSplitter.setString(settingValue);
+                while (mStringColonSplitter.hasNext()) {
+                    String accessibilityService = mStringColonSplitter.next();
+
+                    Log.e(TAG, "accessibilityService :: " + accessibilityService + " " + service);
+                    if (accessibilityService.equalsIgnoreCase(service)) {
+                        Log.e(TAG, "We've found the correct setting - accessibility is switched on!");
+                        return true;
+                    }
+                }
+            }
+        } else {
+            Log.e(TAG, "***ACCESSIBILITY IS DISABLED***");
+        }
+        return false;
     }
 }

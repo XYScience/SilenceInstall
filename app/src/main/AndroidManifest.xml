@@ -3,6 +3,8 @@
           package="com.science.silenceinstall">
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
         android:allowBackup="true"
@@ -32,8 +34,7 @@
             android:name=".MyAccessibilityService"
             android:enabled="true"
             android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:process=":accessibility">
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService"/>
             </intent-filter>
@@ -42,6 +43,8 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service"/>
         </service>
+
+        <service android:name=".DownLoadService"/>
     </application>
 
 </manifest>

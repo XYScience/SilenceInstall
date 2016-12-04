@@ -12,6 +12,7 @@
         android:id="@+id/rl_silence_root_install"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
         android:onClick="onClick"
         android:padding="16dp">
 
@@ -49,6 +50,7 @@
         android:id="@+id/rl_silence_auto_install"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
         android:onClick="onClick"
         android:padding="16dp">
 
