@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -28,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
     private AppCompatCheckBox mCbSilenceRootInstall, mCbSilenceAutoInstall, mCbDeleteDownloadFile;
     private EditText mEdApkUrl;
     private DownLoadService mDownLoadService;
+    private InstalledReceiver mInstalledReceiver;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,6 +53,16 @@ public class MainActivity extends AppCompatActivity {
          */
         Intent intent = new Intent(MainActivity.this, DownLoadService.class);
         bindService(intent, mServiceConnection, BIND_AUTO_CREATE);
+
+        /**
+         * 注册安装程序广播(暂时发现在androidManifest.xml中注册，nexus5 Android7.1接收不到广播）
+         */
+        mInstalledReceiver = new InstalledReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction("android.intent.action.PACKAGE_ADDED");
+        filter.addAction("android.intent.action.PACKAGE_REMOVED");
+        filter.addDataScheme("package");
+        this.registerReceiver(mInstalledReceiver, filter);
     }
 
     public void onClick(View view) {
@@ -138,6 +150,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         unbindService(mServiceConnection);
+        if (mInstalledReceiver != null) {
+            this.unregisterReceiver(mInstalledReceiver);
+        }
     }
 
     @Override

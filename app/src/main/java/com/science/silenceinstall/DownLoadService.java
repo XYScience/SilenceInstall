@@ -41,6 +41,7 @@ public class DownLoadService extends Service {
      * 系统下载器分配的唯一下载任务id，可以通过这个id查询或者处理下载任务
      */
     public long enqueueId = -1;
+    private String apkPath;
 
     @Nullable
     @Override
@@ -52,6 +53,17 @@ public class DownLoadService extends Service {
         public DownLoadService getServices() {
             return DownLoadService.this;
         }
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if ((Boolean) SharedPreferenceUtil.get(mContext, MainActivity.DELETE_DOWNLOAD_FILE, false)) {
+            File file = new File(apkPath);
+            if (file.exists()) {
+                file.delete();
+            }
+        }
+        return START_STICKY;
     }
 
     public void registerReceiver(Context context) {
@@ -68,12 +80,12 @@ public class DownLoadService extends Service {
                     if (status == DownloadManager.STATUS_SUCCESSFUL) {
                         String apkUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
                         File file = new File(Uri.parse(apkUri).getPath());
-                        String apkPath = file.getAbsolutePath();
+                        apkPath = file.getAbsolutePath();
                         // 接收下载完成的广播
                         if ((Boolean) SharedPreferenceUtil.get(mContext, MainActivity.SILENCE_ROOT_INSTALL, false)) {
-                            installRoot(apkPath);
+                            installRoot();
                         } else {
-                            installAuto(apkPath);
+                            installAuto();
                         }
                     }
                 }
@@ -91,7 +103,7 @@ public class DownLoadService extends Service {
      * @param apkPath
      * @return 安装成功返回true，安装失败返回false。
      */
-    public void installRoot(final String apkPath) {
+    public void installRoot() {
         new AsyncTask<Boolean, Boolean, Boolean>() {
             @Override
             protected Boolean doInBackground(Boolean... params) {
@@ -135,15 +147,9 @@ public class DownLoadService extends Service {
             protected void onPostExecute(Boolean hasRoot) {
                 // Toast.makeText(this, "唔好意思，本机冇root权限~~", Toast.LENGTH_SHORT).show();
                 if (!hasRoot) {
-                    installAuto(apkPath);
+                    installAuto();
                 } else {
                     Toast.makeText(DownLoadService.this, "安装完成!", Toast.LENGTH_SHORT).show();
-                    if ((Boolean) SharedPreferenceUtil.get(mContext, MainActivity.DELETE_DOWNLOAD_FILE, false)) {
-                        File file = new File(apkPath);
-                        if (file.exists()) {
-                            file.delete();
-                        }
-                    }
                 }
             }
         }.execute();
@@ -151,10 +157,8 @@ public class DownLoadService extends Service {
 
     /**
      * 自动安装
-     *
-     * @param apkPath
      */
-    public void installAuto(String apkPath) {
+    public void installAuto() {
         Intent localIntent = new Intent(Intent.ACTION_VIEW);
         localIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         Uri uri;

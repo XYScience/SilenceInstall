@@ -15,18 +15,22 @@ import android.util.Log;
 public class InstalledReceiver extends BroadcastReceiver {
 
     private static final String TAG = InstalledReceiver.class.getSimpleName() + ">>>>>";
+    public static final String INSTALL_FINISHED = "install_finished";
 
     @Override
     public void onReceive(Context context, Intent intent) {
         //接收安装广播
         if (intent.getAction().equals("android.intent.action.PACKAGE_ADDED")) {
             String packageName = intent.getDataString();
-            Log.e(TAG, "安装了:" + packageName + "包名的程序");
+            Log.e(TAG, "安装了:" + packageName);
+            Intent intentDownload = new Intent(context, DownLoadService.class);
+            intentDownload.putExtra(INSTALL_FINISHED, packageName);
+            context.startService(intentDownload);
         }
         //接收卸载广播
         if (intent.getAction().equals("android.intent.action.PACKAGE_REMOVED")) {
             String packageName = intent.getDataString();
-            Log.e(TAG, "卸载了:" + packageName + "包名的程序");
+            Log.e(TAG, "卸载了:" + packageName);
         }
     }
 }
