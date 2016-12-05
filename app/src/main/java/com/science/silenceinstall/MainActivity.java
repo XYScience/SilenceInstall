@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.support.v7.app.AppCompatActivity;
@@ -15,18 +14,15 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.Toast;
 
 import com.tbruyelle.rxpermissions.RxPermissions;
-
-import java.io.File;
 
 import rx.functions.Action1;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = MainActivity.class.getSimpleName() + ">>>>>";
-    public static final String APK_URL = "apk_url";
+    public static final String SILENCE_ROOT_INSTALL = "SilenceRootInstall";
     private String apkUrl = "http://dakaapp.troila.com/download/daka.apk?v=3.0";
     private AppCompatCheckBox mCbSilenceRootInstall, mCbSilenceAutoInstall;
     private EditText mEdApkUrl;
@@ -48,6 +44,9 @@ public class MainActivity extends AppCompatActivity {
             mCbSilenceAutoInstall.setChecked(false);
         }
 
+        /**
+         * 开启下载服务
+         */
         Intent intent = new Intent(MainActivity.this, DownLoadService.class);
         bindService(intent, mServiceConnection, BIND_AUTO_CREATE);
     }
@@ -67,31 +66,30 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 是否开启静默安装
+     */
     private void silenceRootInstall() {
-        if (isRoot()) {
-            if (mCbSilenceRootInstall.isChecked()) {
-                mCbSilenceRootInstall.setChecked(false);
-            } else {
-                mCbSilenceRootInstall.setChecked(true);
-            }
+        if (mCbSilenceRootInstall.isChecked()) {
+            mCbSilenceRootInstall.setChecked(false);
+            SharedPreferenceUtil.put(this, SILENCE_ROOT_INSTALL, false);
         } else {
-            Toast.makeText(this, "唔好意思，本机冇root权限~~", Toast.LENGTH_SHORT).show();
+            mCbSilenceRootInstall.setChecked(true);
+            SharedPreferenceUtil.put(this, SILENCE_ROOT_INSTALL, true);
         }
     }
 
+    /**
+     * 是否开启自动安装
+     */
     private void silenceAutoInstall() {
-        if (isAccessibilitySettingsOn(this)) {
-            if (mCbSilenceAutoInstall.isChecked()) {
-                mCbSilenceAutoInstall.setChecked(false);
-            } else {
-                mCbSilenceAutoInstall.setChecked(true);
-            }
-        } else {
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            startActivityForResult(intent, 1);
-        }
+        Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        startActivityForResult(intent, 1);
     }
 
+    /**
+     * 开始下载并安装
+     */
     private void startDownload() {
         RxPermissions rxPermissions = new RxPermissions(this);
         rxPermissions.request(Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -99,22 +97,7 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void call(Boolean aBoolean) {
                         if (aBoolean) {
-                            File fileParent = Environment.getExternalStoragePublicDirectory(DownLoadService.FILE_DIR);
-                            File[] files = fileParent.listFiles();
-                            if (files == null || files.length == 0) {
-                                mDownLoadService.startDownload(apkUrl);
-                            } else {
-                                for (File file : files) {
-                                    if (file.isFile()) {
-                                        if (file.getName().equals(DownLoadService.FILE_NAME)) {
-                                            mDownLoadService.installRoot();
-                                        }
-                                    } else {
-                                        mDownLoadService.startDownload(apkUrl);
-                                    }
-                                }
-                            }
-
+                            mDownLoadService.startDownload(apkUrl);
                         }
                     }
                 });
@@ -147,25 +130,6 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mCbSilenceAutoInstall.setChecked(false);
         }
-    }
-
-    /**
-     * 判断手机是否拥有Root权限。
-     *
-     * @return 有root权限返回true，否则返回false。
-     */
-    public boolean isRoot() {
-        boolean bool = false;
-        try {
-            if (Runtime.getRuntime().exec("su").getOutputStream() == null) {
-                return false;
-            } else {
-                return true;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return bool;
     }
 
     /**
