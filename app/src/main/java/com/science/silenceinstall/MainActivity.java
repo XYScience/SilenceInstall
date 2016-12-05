@@ -23,8 +23,9 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = MainActivity.class.getSimpleName() + ">>>>>";
     public static final String SILENCE_ROOT_INSTALL = "SilenceRootInstall";
+    public static final String DELETE_DOWNLOAD_FILE = "DeleteDownloadFile";
     private String apkUrl = "http://dakaapp.troila.com/download/daka.apk?v=3.0";
-    private AppCompatCheckBox mCbSilenceRootInstall, mCbSilenceAutoInstall;
+    private AppCompatCheckBox mCbSilenceRootInstall, mCbSilenceAutoInstall, mCbDeleteDownloadFile;
     private EditText mEdApkUrl;
     private DownLoadService mDownLoadService;
 
@@ -35,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
 
         mCbSilenceRootInstall = (AppCompatCheckBox) findViewById(R.id.cb_silence_root_install);
         mCbSilenceAutoInstall = (AppCompatCheckBox) findViewById(R.id.cb_silence_auto_install);
+        mCbDeleteDownloadFile = (AppCompatCheckBox) findViewById(R.id.cb_delete_download_file);
         mEdApkUrl = (EditText) findViewById(R.id.et_apk_url);
         mEdApkUrl.setText(apkUrl);
 
@@ -62,6 +64,9 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case R.id.btn_download:
                 startDownload();
+                break;
+            case R.id.rl_delete_download_file:
+                deleteDownloadFile();
                 break;
         }
     }
@@ -103,11 +108,24 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
+    /**
+     * 删除下载文件
+     */
+    private void deleteDownloadFile() {
+        if (mCbDeleteDownloadFile.isChecked()) {
+            mCbDeleteDownloadFile.setChecked(false);
+            SharedPreferenceUtil.put(this, DELETE_DOWNLOAD_FILE, false);
+        } else {
+            mCbDeleteDownloadFile.setChecked(true);
+            SharedPreferenceUtil.put(this, DELETE_DOWNLOAD_FILE, true);
+        }
+    }
+
     ServiceConnection mServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             mDownLoadService = ((DownLoadService.MyBinder) service).getServices();
-            mDownLoadService.registerReceiver();
+            mDownLoadService.registerReceiver(MainActivity.this);
         }
 
         @Override

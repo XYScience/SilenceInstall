@@ -34,6 +34,7 @@ public class DownLoadService extends Service {
 
     private static final String TAG = DownLoadService.class.getSimpleName() + ">>>>>";
     private static final String FILE_DIR = "TestApk";
+    private Context mContext;
     private BroadcastReceiver mBroadcastReceiver;
     public DownloadManager mDownloadManager;
     /**
@@ -53,7 +54,8 @@ public class DownLoadService extends Service {
         }
     }
 
-    public void registerReceiver() {
+    public void registerReceiver(Context context) {
+        mContext = context;
         mBroadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -68,7 +70,7 @@ public class DownLoadService extends Service {
                         File file = new File(Uri.parse(apkUri).getPath());
                         String apkPath = file.getAbsolutePath();
                         // 接收下载完成的广播
-                        if ((Boolean) SharedPreferenceUtil.get(context, MainActivity.SILENCE_ROOT_INSTALL, false)) {
+                        if ((Boolean) SharedPreferenceUtil.get(mContext, MainActivity.SILENCE_ROOT_INSTALL, false)) {
                             installRoot(apkPath);
                         } else {
                             installAuto(apkPath);
@@ -136,6 +138,12 @@ public class DownLoadService extends Service {
                     installAuto(apkPath);
                 } else {
                     Toast.makeText(DownLoadService.this, "安装完成!", Toast.LENGTH_SHORT).show();
+                    if ((Boolean) SharedPreferenceUtil.get(mContext, MainActivity.DELETE_DOWNLOAD_FILE, false)) {
+                        File file = new File(apkPath);
+                        if (file.exists()) {
+                            file.delete();
+                        }
+                    }
                 }
             }
         }.execute();
@@ -143,6 +151,7 @@ public class DownLoadService extends Service {
 
     /**
      * 自动安装
+     *
      * @param apkPath
      */
     public void installAuto(String apkPath) {
@@ -161,6 +170,7 @@ public class DownLoadService extends Service {
 
     /**
      * 开始下载apk
+     *
      * @param apkUrl
      */
     public void startDownload(String apkUrl) {
