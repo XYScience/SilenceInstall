@@ -11,7 +11,9 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Message;
 import android.support.annotation.Nullable;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
@@ -22,6 +24,10 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author SScience
@@ -37,6 +43,8 @@ public class DownLoadService extends Service {
     private Context mContext;
     private BroadcastReceiver mBroadcastReceiver;
     public DownloadManager mDownloadManager;
+    private ScheduledExecutorService scheduledExecutorService;
+    private Future<?> future;
     /**
      * 系统下载器分配的唯一下载任务id，可以通过这个id查询或者处理下载任务
      */
@@ -57,12 +65,12 @@ public class DownLoadService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if ((Boolean) SharedPreferenceUtil.get(mContext, MainActivity.DELETE_DOWNLOAD_FILE, false)) {
-            File file = new File(apkPath);
-            if (file.exists()) {
-                file.delete();
-            }
+        File file = new File(apkPath);
+        if (file.exists()) {
+            file.delete();
         }
+        // 销毁当前service
+        stopSelf(startId);
         return START_STICKY;
     }
 
@@ -89,18 +97,16 @@ public class DownLoadService extends Service {
                         }
                     }
                 }
-                // 销毁当前service
-                stopSelf();
             }
         };
         registerReceiver(mBroadcastReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
         mDownloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        scheduledExecutorService = Executors.newScheduledThreadPool(1);
     }
 
     /**
      * 执行具体的静默安装逻辑，需要手机ROOT。
      *
-     * @param apkPath
      * @return 安装成功返回true，安装失败返回false。
      */
     public void installRoot() {
@@ -187,15 +193,74 @@ public class DownLoadService extends Service {
         // 设置下载到本地的文件夹和文件名
         request.setDestinationInExternalPublicDir(FILE_DIR, s2[0]);
         // 设置下载时或者下载完成时是否通知栏显示
-        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN);
         request.setTitle("应用下载");
         // 执行下载，并返回任务唯一id
         enqueueId = mDownloadManager.enqueue(request);
+
+        //每过100ms通知handler去查询下载状态
+        future = scheduledExecutorService.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                Message msg = mHandler.obtainMessage();
+                mHandler.sendMessage(msg);
+            }
+        }, 0, 100, TimeUnit.MILLISECONDS);
+    }
+
+    private Handler mHandler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(Message msg) {
+            DownloadManager.Query query = new DownloadManager.Query().setFilterById(enqueueId);
+            Cursor cursor = mDownloadManager.query(query);
+            if (cursor != null && cursor.moveToFirst()) {
+                //此处直接查询文件大小
+                long downSize = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                //获取文件下载总大小
+                long fileTotalSize = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+
+                cursor.close();
+
+                if (fileTotalSize != 0) {
+                    int percentage = (int) (downSize * 100 / fileTotalSize);
+                    if (mDownloadCallback != null) {
+                        mDownloadCallback.callback(percentage);
+                    }
+                }
+
+                //终止轮询task
+                if (fileTotalSize == downSize)
+                    future.cancel(true);
+            }
+            return false;
+        }
+    });
+
+    public void cancelDownload() {
+        mDownloadManager.remove(enqueueId);
+        if (mDownloadCallback != null) {
+            mDownloadCallback.callback(0);
+        }
+    }
+
+    interface DownloadCallback {
+        void callback(int percentage);
+    }
+
+    public DownloadCallback mDownloadCallback;
+
+    public void setDownloadCallback(DownloadCallback downloadCallback) {
+        this.mDownloadCallback = downloadCallback;
     }
 
     @Override
     public void onDestroy() {
-        unregisterReceiver(mBroadcastReceiver);
         super.onDestroy();
+        unregisterReceiver(mBroadcastReceiver);
+        if (future != null && !future.isCancelled())
+            future.cancel(true);
+        if (scheduledExecutorService != null && !scheduledExecutorService.isShutdown())
+            scheduledExecutorService.shutdown();
+        Log.e(TAG, "onDestroy:>>>>>>>");
     }
 }

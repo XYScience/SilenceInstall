@@ -15,7 +15,6 @@ import android.util.Log;
 public class InstalledReceiver extends BroadcastReceiver {
 
     private static final String TAG = InstalledReceiver.class.getSimpleName() + ">>>>>";
-    public static final String INSTALL_FINISHED = "install_finished";
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -24,7 +23,6 @@ public class InstalledReceiver extends BroadcastReceiver {
             String packageName = intent.getDataString();
             Log.e(TAG, "安装了:" + packageName);
             Intent intentDownload = new Intent(context, DownLoadService.class);
-            intentDownload.putExtra(INSTALL_FINISHED, packageName);
             context.startService(intentDownload);
         }
         //接收卸载广播

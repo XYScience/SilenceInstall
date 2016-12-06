@@ -15,19 +15,20 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 
 import com.tbruyelle.rxpermissions.RxPermissions;
 
 import rx.functions.Action1;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements DownLoadService.DownloadCallback {
 
     private static final String TAG = MainActivity.class.getSimpleName() + ">>>>>";
     public static final String SILENCE_ROOT_INSTALL = "SilenceRootInstall";
-    public static final String DELETE_DOWNLOAD_FILE = "DeleteDownloadFile";
     private String apkUrl = "http://dakaapp.troila.com/download/daka.apk?v=3.0";
-    private AppCompatCheckBox mCbSilenceRootInstall, mCbSilenceAutoInstall, mCbDeleteDownloadFile;
+    private AppCompatCheckBox mCbSilenceRootInstall, mCbSilenceAutoInstall;
     private EditText mEdApkUrl;
+    private ProgressBar mProgressBar;
     private DownLoadService mDownLoadService;
     private InstalledReceiver mInstalledReceiver;
 
@@ -38,9 +39,9 @@ public class MainActivity extends AppCompatActivity {
 
         mCbSilenceRootInstall = (AppCompatCheckBox) findViewById(R.id.cb_silence_root_install);
         mCbSilenceAutoInstall = (AppCompatCheckBox) findViewById(R.id.cb_silence_auto_install);
-        mCbDeleteDownloadFile = (AppCompatCheckBox) findViewById(R.id.cb_delete_download_file);
         mEdApkUrl = (EditText) findViewById(R.id.et_apk_url);
         mEdApkUrl.setText(apkUrl);
+        mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
 
         if (isAccessibilitySettingsOn(this)) {
             mCbSilenceAutoInstall.setChecked(true);
@@ -77,8 +78,8 @@ public class MainActivity extends AppCompatActivity {
             case R.id.btn_download:
                 startDownload();
                 break;
-            case R.id.rl_delete_download_file:
-                deleteDownloadFile();
+            case R.id.btn_cancel_download:
+                mDownLoadService.cancelDownload();
                 break;
         }
     }
@@ -115,22 +116,11 @@ public class MainActivity extends AppCompatActivity {
                     public void call(Boolean aBoolean) {
                         if (aBoolean) {
                             mDownLoadService.startDownload(apkUrl);
+                            mDownLoadService.setDownloadCallback(MainActivity.this);
+                            mProgressBar.setIndeterminate(true);
                         }
                     }
                 });
-    }
-
-    /**
-     * 删除下载文件
-     */
-    private void deleteDownloadFile() {
-        if (mCbDeleteDownloadFile.isChecked()) {
-            mCbDeleteDownloadFile.setChecked(false);
-            SharedPreferenceUtil.put(this, DELETE_DOWNLOAD_FILE, false);
-        } else {
-            mCbDeleteDownloadFile.setChecked(true);
-            SharedPreferenceUtil.put(this, DELETE_DOWNLOAD_FILE, true);
-        }
     }
 
     ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -205,5 +195,13 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "***ACCESSIBILITY IS DISABLED***");
         }
         return false;
+    }
+
+    @Override
+    public void callback(int percentage) {
+        if (percentage > 0) {
+            mProgressBar.setIndeterminate(false);
+        }
+        mProgressBar.setProgress(percentage);
     }
 }
