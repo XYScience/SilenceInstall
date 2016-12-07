@@ -15,20 +15,19 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ProgressBar;
 
 import com.tbruyelle.rxpermissions.RxPermissions;
 
 import rx.functions.Action1;
 
-public class MainActivity extends AppCompatActivity implements DownLoadService.DownloadCallback {
+public class MainActivity extends AppCompatActivity{
 
     private static final String TAG = MainActivity.class.getSimpleName() + ">>>>>";
     public static final String SILENCE_ROOT_INSTALL = "SilenceRootInstall";
-    private String apkUrl = "http://dakaapp.troila.com/download/daka.apk?v=3.0";
+     private String apkUrl = "http://dakaapp.troila.com/download/daka.apk?v=3.0";
+//    private String apkUrl = "http://7xthed.com1.z0.glb.clouddn.com/prevent-3.1.2.apk";
     private AppCompatCheckBox mCbSilenceRootInstall, mCbSilenceAutoInstall;
     private EditText mEdApkUrl;
-    private ProgressBar mProgressBar;
     private DownLoadService mDownLoadService;
     private InstalledReceiver mInstalledReceiver;
 
@@ -41,7 +40,6 @@ public class MainActivity extends AppCompatActivity implements DownLoadService.D
         mCbSilenceAutoInstall = (AppCompatCheckBox) findViewById(R.id.cb_silence_auto_install);
         mEdApkUrl = (EditText) findViewById(R.id.et_apk_url);
         mEdApkUrl.setText(apkUrl);
-        mProgressBar = (ProgressBar) findViewById(R.id.progressBar);
 
         if (isAccessibilitySettingsOn(this)) {
             mCbSilenceAutoInstall.setChecked(true);
@@ -50,7 +48,7 @@ public class MainActivity extends AppCompatActivity implements DownLoadService.D
         }
 
         /**
-         * 开启下载服务
+         * 绑定下载服务
          */
         Intent intent = new Intent(MainActivity.this, DownLoadService.class);
         bindService(intent, mServiceConnection, BIND_AUTO_CREATE);
@@ -77,9 +75,6 @@ public class MainActivity extends AppCompatActivity implements DownLoadService.D
                 break;
             case R.id.btn_download:
                 startDownload();
-                break;
-            case R.id.btn_cancel_download:
-                mDownLoadService.cancelDownload();
                 break;
         }
     }
@@ -116,8 +111,6 @@ public class MainActivity extends AppCompatActivity implements DownLoadService.D
                     public void call(Boolean aBoolean) {
                         if (aBoolean) {
                             mDownLoadService.startDownload(apkUrl);
-                            mDownLoadService.setDownloadCallback(MainActivity.this);
-                            mProgressBar.setIndeterminate(true);
                         }
                     }
                 });
@@ -197,11 +190,4 @@ public class MainActivity extends AppCompatActivity implements DownLoadService.D
         return false;
     }
 
-    @Override
-    public void callback(int percentage) {
-        if (percentage > 0) {
-            mProgressBar.setIndeterminate(false);
-        }
-        mProgressBar.setProgress(percentage);
-    }
 }

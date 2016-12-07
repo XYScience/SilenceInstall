@@ -5,7 +5,6 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.DOWNLOAD_WITHOUT_NOTIFICATION" /> <!-- downloadManager通知栏不显示 -->
 
     <application
         android:allowBackup="true"
@@ -21,6 +20,7 @@
             </intent-filter>
         </activity>
 
+        <!-- 兼容Android7.0+禁止对外公开file://URI，应用间共享文件，应发送content://URI -->
         <provider
             android:name="android.support.v4.content.FileProvider"
             android:authorities="com.science.fileprovider"
@@ -31,6 +31,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- 自动安装服务 -->
         <service
             android:name=".MyAccessibilityService"
             android:enabled="true"
@@ -45,6 +46,7 @@
                 android:resource="@xml/accessibility_service" />
         </service>
 
+        <!-- 下载文件服务 -->
         <service android:name=".DownLoadService" />
 
     </application>

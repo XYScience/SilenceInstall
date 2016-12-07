@@ -11,9 +11,8 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Binder;
 import android.os.Build;
-import android.os.Handler;
+import android.os.Environment;
 import android.os.IBinder;
-import android.os.Message;
 import android.support.annotation.Nullable;
 import android.support.v4.content.FileProvider;
 import android.util.Log;
@@ -24,14 +23,10 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author SScience
- * @description
+ * @description 下载单个文件服务
  * @email chentushen.science@gmail.com
  * @data 2016/12/4
  */
@@ -43,13 +38,12 @@ public class DownLoadService extends Service {
     private Context mContext;
     private BroadcastReceiver mBroadcastReceiver;
     public DownloadManager mDownloadManager;
-    private ScheduledExecutorService scheduledExecutorService;
-    private Future<?> future;
     /**
      * 系统下载器分配的唯一下载任务id，可以通过这个id查询或者处理下载任务
      */
     public long enqueueId = -1;
     private String apkPath;
+    private Boolean isInstallFinished = true;
 
     @Nullable
     @Override
@@ -69,8 +63,7 @@ public class DownLoadService extends Service {
         if (file.exists()) {
             file.delete();
         }
-        // 销毁当前service
-        stopSelf(startId);
+        isInstallFinished = true;
         return START_STICKY;
     }
 
@@ -79,6 +72,7 @@ public class DownLoadService extends Service {
         mBroadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+                // 接收下载完成的广播
                 long downloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, 0);
                 if (downloadId != enqueueId) return;
                 DownloadManager.Query query = new DownloadManager.Query().setFilterById(enqueueId);
@@ -89,11 +83,11 @@ public class DownLoadService extends Service {
                         String apkUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
                         File file = new File(Uri.parse(apkUri).getPath());
                         apkPath = file.getAbsolutePath();
-                        // 接收下载完成的广播
+
                         if ((Boolean) SharedPreferenceUtil.get(mContext, MainActivity.SILENCE_ROOT_INSTALL, false)) {
-                            installRoot();
+                            installRoot(apkPath);
                         } else {
-                            installAuto();
+                            installAuto(apkPath);
                         }
                     }
                 }
@@ -101,16 +95,16 @@ public class DownLoadService extends Service {
         };
         registerReceiver(mBroadcastReceiver, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
         mDownloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-        scheduledExecutorService = Executors.newScheduledThreadPool(1);
     }
 
     /**
      * 执行具体的静默安装逻辑，需要手机ROOT。
      *
+     * @param apkPath
      * @return 安装成功返回true，安装失败返回false。
      */
-    public void installRoot() {
-        new AsyncTask<Boolean, Boolean, Boolean>() {
+    public void installRoot(final String apkPath) {
+        new AsyncTask<Boolean, Object, Boolean>() {
             @Override
             protected Boolean doInBackground(Boolean... params) {
                 boolean result = false;
@@ -153,7 +147,7 @@ public class DownLoadService extends Service {
             protected void onPostExecute(Boolean hasRoot) {
                 // Toast.makeText(this, "唔好意思，本机冇root权限~~", Toast.LENGTH_SHORT).show();
                 if (!hasRoot) {
-                    installAuto();
+                    installAuto(apkPath);
                 } else {
                     Toast.makeText(DownLoadService.this, "安装完成!", Toast.LENGTH_SHORT).show();
                 }
@@ -163,8 +157,10 @@ public class DownLoadService extends Service {
 
     /**
      * 自动安装
+     *
+     * @param apkPath
      */
-    public void installAuto() {
+    public void installAuto(String apkPath) {
         Intent localIntent = new Intent(Intent.ACTION_VIEW);
         localIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         Uri uri;
@@ -172,7 +168,7 @@ public class DownLoadService extends Service {
             uri = FileProvider.getUriForFile(this, "com.science.fileprovider", new File(apkPath));
             localIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } else {
-            uri = Uri.fromFile(new File(apkPath));
+            uri = Uri.fromFile(new File(this.apkPath));
         }
         localIntent.setDataAndType(uri, "application/vnd.android.package-archive"); //打开apk文件
         startActivity(localIntent);
@@ -184,83 +180,34 @@ public class DownLoadService extends Service {
      * @param apkUrl
      */
     public void startDownload(String apkUrl) {
-        String[] s1 = apkUrl.split("download/");
-        String[] s2 = s1[1].split("\\?");
-        // 设置下载地址
-        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
-        // 设置下载文件类型
-        request.setMimeType("application/vnd.android.package-archive");
-        // 设置下载到本地的文件夹和文件名
-        request.setDestinationInExternalPublicDir(FILE_DIR, s2[0]);
-        // 设置下载时或者下载完成时是否通知栏显示
-        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN);
-        request.setTitle("应用下载");
-        // 执行下载，并返回任务唯一id
-        enqueueId = mDownloadManager.enqueue(request);
-
-        //每过100ms通知handler去查询下载状态
-        future = scheduledExecutorService.scheduleWithFixedDelay(new Runnable() {
-            @Override
-            public void run() {
-                Message msg = mHandler.obtainMessage();
-                mHandler.sendMessage(msg);
+        String apkName = "test.apk";
+        File file = new File(Environment.getExternalStoragePublicDirectory(FILE_DIR) + "/" + apkName);
+        if (!file.exists()) {
+            // 设置下载地址
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(apkUrl));
+            // 设置下载文件类型
+            request.setMimeType("application/vnd.android.package-archive");
+            // 设置下载到本地的文件夹和文件名
+            request.setDestinationInExternalPublicDir(FILE_DIR, apkName);
+            // 设置下载时或者下载完成时是否通知栏显示
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            request.setTitle("应用下载");
+            // 执行下载，并返回任务唯一id
+            enqueueId = mDownloadManager.enqueue(request);
+        } else {
+            apkPath = file.getAbsolutePath();
+            if ((Boolean) SharedPreferenceUtil.get(mContext, MainActivity.SILENCE_ROOT_INSTALL, false)) {
+                installRoot(file.getAbsolutePath());
+            } else {
+                installAuto(file.getAbsolutePath());
             }
-        }, 0, 100, TimeUnit.MILLISECONDS);
-    }
-
-    private Handler mHandler = new Handler(new Handler.Callback() {
-        @Override
-        public boolean handleMessage(Message msg) {
-            DownloadManager.Query query = new DownloadManager.Query().setFilterById(enqueueId);
-            Cursor cursor = mDownloadManager.query(query);
-            if (cursor != null && cursor.moveToFirst()) {
-                //此处直接查询文件大小
-                long downSize = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
-                //获取文件下载总大小
-                long fileTotalSize = cursor.getLong(cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
-
-                cursor.close();
-
-                if (fileTotalSize != 0) {
-                    int percentage = (int) (downSize * 100 / fileTotalSize);
-                    if (mDownloadCallback != null) {
-                        mDownloadCallback.callback(percentage);
-                    }
-                }
-
-                //终止轮询task
-                if (fileTotalSize == downSize)
-                    future.cancel(true);
-            }
-            return false;
         }
-    });
-
-    public void cancelDownload() {
-        mDownloadManager.remove(enqueueId);
-        if (mDownloadCallback != null) {
-            mDownloadCallback.callback(0);
-        }
-    }
-
-    interface DownloadCallback {
-        void callback(int percentage);
-    }
-
-    public DownloadCallback mDownloadCallback;
-
-    public void setDownloadCallback(DownloadCallback downloadCallback) {
-        this.mDownloadCallback = downloadCallback;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         unregisterReceiver(mBroadcastReceiver);
-        if (future != null && !future.isCancelled())
-            future.cancel(true);
-        if (scheduledExecutorService != null && !scheduledExecutorService.isShutdown())
-            scheduledExecutorService.shutdown();
         Log.e(TAG, "onDestroy:>>>>>>>");
     }
 }
