@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<accessibility-service
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewScrolled"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault"
     android:canRetrieveWindowContent="true"
-    android:notificationTimeout="100"
     android:description="@string/accessibility_service_description"
-    android:packageNames="com.android.packageinstaller,com.google.android.packageinstaller,com.samsung.android.packageinstaller,com.lenovo.safecenter,com.lenovo.security, \com.xiaomi.gamecenter"/>
+    android:notificationTimeout="100"
+    android:packageNames="com.android.packageinstaller,com.google.android.packageinstaller,com.samsung.android.packageinstaller,com.lenovo.safecenter,com.lenovo.security,com.xiaomi.gamecenter" />
+
+    <!--
+        packageNames:指定监听哪个应用程序下的窗口活动，为了兼容多数Rom，可用","分割。
+        description:指定在无障碍服务当中显示给用户看的说明信息。
+        accessibilityEventTypes:指定我们在监听窗口中可以接收哪些事件。
+        accessibilityFlags:可以指定无障碍服务的一些附加参数，传默认值flagDefault就行。
+        accessibilityFeedbackType:指定无障碍服务的反馈方式，如语音，震动等。这里使用feedbackGeneric(普通回馈)。
+        canRetrieveWindowContent:指定是否允许程序读取窗口中的节点和内容，允许则必须为true。
+        notificationTimeout:响应事件的时间间隔
+        -->

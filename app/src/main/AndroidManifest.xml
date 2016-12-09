@@ -21,6 +21,12 @@
         </activity>
 
         <!-- 兼容Android7.0+禁止对外公开file://URI，应用间共享文件，应发送content://URI -->
+        <!--
+            name:可以直接使用默认的FileProvider，也可以继承做其它操作。
+            authorities:定义唯一一个authorities，和构建content://uri中的getUriForFile方法的authority参数一致
+            resource：指向保存位置path配置的xml文件。
+            其它都是固定的。
+        -->
         <provider
             android:name="android.support.v4.content.FileProvider"
             android:authorities="com.science.fileprovider"
@@ -32,10 +38,15 @@
         </provider>
 
         <!-- 自动安装服务 -->
+        <!--
+            name:创建一个Service类继承AccessibilityService来处理接收到的事件
+            label:在系统设置辅助功能中显示的名称。
+            resource：指向配置的xml文件。
+            其它都是固定的。
+        -->
         <service
             android:name=".MyAccessibilityService"
-            android:enabled="true"
-            android:exported="true"
+            android:label="SScience的自动安装服务测试"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />

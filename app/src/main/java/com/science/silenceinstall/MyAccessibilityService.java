@@ -6,12 +6,11 @@ import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 /**
  * @author SScience
- * @description
+ * @description 自动安装服务
  * @email chentushen.science@gmail.com,274240671@qq.com
  * @data 2016/12/2
  */
@@ -19,53 +18,45 @@ import java.util.Map;
 public class MyAccessibilityService extends AccessibilityService {
 
     private static final String TAG = MyAccessibilityService.class.getSimpleName() + ">>>>>";
-    Map<Integer, Boolean> handledMap = new HashMap<>();
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        Log.e(TAG, "onAccessibilityEvent");
+        /**
+         * 在某些rom上，event.getSource()获取到的某些值为null；
+         */
         // AccessibilityNodeInfo nodeInfo = event.getSource()：
-        // 在Android6.0以上，经实测初步判断event.getSource()在typeWindowContentChanged下，即窗口内容改变时，
-        // 获取不到"事件资源的根节点"，只能获取改变部分的第一个节点；
-        // 因为在Android6.0以上，从正在安装到安装完成，窗口状态不变，但窗口内容改变，所以最后获取不到“完成”
-        // 的节点，也就是没有自动点击安装完成。
         AccessibilityNodeInfo nodeInfo = getRootInActiveWindow();
         if (nodeInfo != null) {
-            // 只监听typeWindowStateChanged|typeWindowContentChanged事件，配置文件accessibility_service定义；
-            // 两个事件同时都有被触发的可能，那么为了防止二次处理的情况，这里使用了一个Map来过滤掉重复事件
-            if (handledMap.get(event.getWindowId()) == null) {
-                boolean handled = iterateNodesAndHandle(nodeInfo);
-                if (handled) {
-                    handledMap.put(event.getWindowId(), true);
-                }
+            if (!checkIfUnInstall(nodeInfo)) {
+                iterateNodes(nodeInfo);
             }
         }
     }
 
-    private boolean iterateNodesAndHandle(AccessibilityNodeInfo nodeInfo) {
-        if (nodeInfo != null) {
-            int childCount = nodeInfo.getChildCount();
-            if ("android.widget.Button".equals(nodeInfo.getClassName())) {
-                String nodeContent = nodeInfo.getText().toString();
-                if ("安装".equals(nodeContent)
-                        || "继续安装".equals(nodeContent)
-                        || "仅允许一次".equals(nodeContent)
-                        || "完成".equals(nodeContent)
-                        || "确定".equals(nodeContent)) {
-                    nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                    return true;
-                }
-            } else if ("android.widget.ScrollView".equals(nodeInfo.getClassName())) {
-                nodeInfo.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
-            }
-            for (int i = 0; i < childCount; i++) {
-                AccessibilityNodeInfo childNodeInfo = nodeInfo.getChild(i);
-                if (iterateNodesAndHandle(childNodeInfo)) {
-                    return true;
+    /**
+     * 检查是否是卸载操作（如果安装界面出现“卸载”，那就无计咯）
+     *
+     * @param nodeInfo
+     * @return
+     */
+    private Boolean checkIfUnInstall(AccessibilityNodeInfo nodeInfo) {
+        List<AccessibilityNodeInfo> infos = nodeInfo.findAccessibilityNodeInfosByText("卸载");
+        if (infos != null && !infos.isEmpty()) {
+            return true;
+        }
+        return false;
+    }
+
+    private void iterateNodes(AccessibilityNodeInfo nodeInfo) {
+        String[] clickTexts = {"安装", "继续", "继续安装", "替换", "下一步", "仅允许一次", "完成", "确定"};
+        for (String clickText : clickTexts) {
+            List<AccessibilityNodeInfo> infos = nodeInfo.findAccessibilityNodeInfosByText(clickText);
+            for (AccessibilityNodeInfo info : infos) {
+                if (info.isClickable() && info.isEnabled()) {
+                    info.performAction(AccessibilityNodeInfo.ACTION_CLICK);
                 }
             }
         }
-        return false;
     }
 
     @Override

@@ -43,7 +43,6 @@ public class DownLoadService extends Service {
      */
     public long enqueueId = -1;
     private String apkPath;
-    private Boolean isInstallFinished = true;
 
     @Nullable
     @Override
@@ -59,11 +58,13 @@ public class DownLoadService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        /**
+         * 安装完成删除文件
+         */
         File file = new File(apkPath);
         if (file.exists()) {
             file.delete();
         }
-        isInstallFinished = true;
         return START_STICKY;
     }
 
@@ -122,9 +123,9 @@ public class DownLoadService extends Service {
                     dataOutputStream.flush();
                     int i = process.waitFor();
                     if (i == 0) {
-                        result = true;
+                        result = true; // 正确获取root权限
                     } else {
-                        result = false;
+                        result = false; // 没有root权限，或者拒绝获取root权限
                     }
                 } catch (Exception e) {
                     Log.e(TAG, e.getMessage(), e);
@@ -164,11 +165,14 @@ public class DownLoadService extends Service {
         Intent localIntent = new Intent(Intent.ACTION_VIEW);
         localIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         Uri uri;
+        /**
+         * Android6.0+禁止应用对外暴露file://uri，改为content://uri；具体参考FileProvider
+         */
         if (Build.VERSION.SDK_INT >= 24) {
             uri = FileProvider.getUriForFile(this, "com.science.fileprovider", new File(apkPath));
             localIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } else {
-            uri = Uri.fromFile(new File(this.apkPath));
+            uri = Uri.fromFile(new File(apkPath));
         }
         localIntent.setDataAndType(uri, "application/vnd.android.package-archive"); //打开apk文件
         startActivity(localIntent);
