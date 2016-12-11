@@ -16,4 +16,4 @@
         accessibilityFeedbackType:指定无障碍服务的反馈方式，如语音，震动等。这里使用feedbackGeneric(普通回馈)。
         canRetrieveWindowContent:指定是否允许程序读取窗口中的节点和内容，允许则必须为true。
         notificationTimeout:响应事件的时间间隔
-        -->
+    -->

@@ -101,7 +101,7 @@ public class MainActivity extends AppCompatActivity{
     }
 
     /**
-     * 开始下载并安装
+     * 开始下载并安装(Android6.0+需要动态申请权限）
      */
     private void startDownload() {
         RxPermissions rxPermissions = new RxPermissions(this);

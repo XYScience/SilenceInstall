@@ -166,7 +166,7 @@ public class DownLoadService extends Service {
         localIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         Uri uri;
         /**
-         * Android6.0+禁止应用对外暴露file://uri，改为content://uri；具体参考FileProvider
+         * Android7.0+禁止应用对外暴露file://uri，改为content://uri；具体参考FileProvider
          */
         if (Build.VERSION.SDK_INT >= 24) {
             uri = FileProvider.getUriForFile(this, "com.science.fileprovider", new File(apkPath));
