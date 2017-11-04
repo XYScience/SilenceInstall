@@ -1,13 +1,15 @@
 # SilenceInstall
-静默安装和自动安装  
+静默安装和自动安装    
+
 一，静默安装  
------  
+------------    
 获取root进行静默安装比较简单：  
 1，申请root权限`Runtime.getRuntime().exec("su")`;  
 2，通过数据输出流`DataOutputStream`写入pm install命令；  
-3，最后获取Process进程的返回值`int i = process.waitFor();`，如果i=0，则表明已获取root权限。  
+3，最后获取Process进程的返回值`int i = process.waitFor();`，如果i=0，则表明已获取root权限。    
+
 二，免root自动安装  
------  
+------------  
 >免root自动安装其实就是借助AccessibilityService无障服务  
 >官网：https://developer.android.google.cn/reference/android/accessibilityservice/AccessibilityService.html  
   
